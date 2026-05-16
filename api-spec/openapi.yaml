@@ -1,0 +1,382 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Red Stars anonymous chat API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: messages
+    description: Chat message operations
+  - name: rooms
+    description: Chat room operations
+  - name: reports
+    description: Report and moderation operations
+  - name: counselors
+    description: Counselor connection operations
+  - name: stats
+    description: Live statistics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /rooms:
+    get:
+      operationId: listRooms
+      tags: [rooms]
+      summary: List all chat rooms
+      responses:
+        "200":
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /rooms/{roomId}/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: Get messages for a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      summary: Send a message to a room
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Message sent (or auto-blocked)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResult"
+        "403":
+          description: User is banned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /messages/{messageId}/report:
+    post:
+      operationId: reportMessage
+      tags: [reports]
+      summary: Report a message for violation
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "200":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportResult"
+
+  /counselors:
+    get:
+      operationId: listCounselors
+      tags: [counselors]
+      summary: List available counselors
+      parameters:
+        - name: topic
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Available counselors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Counselor"
+
+  /counselors/connect:
+    post:
+      operationId: connectCounselor
+      tags: [counselors]
+      summary: Request connection to a counselor based on problem type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CounselorConnectInput"
+      responses:
+        "200":
+          description: Matched counselor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CounselorMatch"
+
+  /stats/live:
+    get:
+      operationId: getLiveStats
+      tags: [stats]
+      summary: Get live platform stats (active users, messages today, rooms online)
+      responses:
+        "200":
+          description: Live stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveStats"
+
+  /stats/mood:
+    get:
+      operationId: getMoodPulse
+      tags: [stats]
+      summary: Get the current mood/atmosphere pulse across all rooms
+      responses:
+        "200":
+          description: Mood pulse data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoodPulse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    Room:
+      type: object
+      required: [id, name, topic, activeUsers, messageCount, mood]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        topic:
+          type: string
+        description:
+          type: ["string", "null"]
+        activeUsers:
+          type: integer
+        messageCount:
+          type: integer
+        mood:
+          type: string
+          description: "calm | stressed | anxious | hopeful | sad"
+        isModerated:
+          type: boolean
+        createdAt:
+          type: string
+
+    Message:
+      type: object
+      required: [id, roomId, anonId, content, createdAt, isBlocked, reportCount]
+      properties:
+        id:
+          type: integer
+        roomId:
+          type: integer
+        anonId:
+          type: string
+          description: Anonymous identifier like "Star #042"
+        content:
+          type: string
+        createdAt:
+          type: string
+        isBlocked:
+          type: boolean
+        isFlagged:
+          type: boolean
+        reportCount:
+          type: integer
+        moderationReason:
+          type: ["string", "null"]
+
+    MessageInput:
+      type: object
+      required: [content, anonId]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+        anonId:
+          type: string
+
+    SendMessageResult:
+      type: object
+      required: [message, wasFiltered, filterReason]
+      properties:
+        message:
+          $ref: "#/components/schemas/Message"
+        wasFiltered:
+          type: boolean
+        filterReason:
+          type: ["string", "null"]
+        autoBanned:
+          type: boolean
+
+    ReportInput:
+      type: object
+      required: [reason, reportedAnonId]
+      properties:
+        reason:
+          type: string
+          description: "harassment | nudity | drugs | hate_speech | spam | other"
+        reportedAnonId:
+          type: string
+        details:
+          type: ["string", "null"]
+
+    ReportResult:
+      type: object
+      required: [success, autoBanned, message]
+      properties:
+        success:
+          type: boolean
+        autoBanned:
+          type: boolean
+        message:
+          type: string
+
+    Counselor:
+      type: object
+      required: [id, name, specialization, available, avatarColor, rating]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        specialization:
+          type: array
+          items:
+            type: string
+        tagline:
+          type: ["string", "null"]
+        available:
+          type: boolean
+        avatarColor:
+          type: string
+        rating:
+          type: number
+        sessionCount:
+          type: integer
+
+    CounselorConnectInput:
+      type: object
+      required: [problemType, anonId]
+      properties:
+        problemType:
+          type: string
+          description: "anxiety | depression | bullying | stress | loneliness | relationship | other"
+        anonId:
+          type: string
+        urgency:
+          type: string
+          description: "low | medium | high | crisis"
+
+    CounselorMatch:
+      type: object
+      required: [counselor, sessionId, estimatedWait]
+      properties:
+        counselor:
+          $ref: "#/components/schemas/Counselor"
+        sessionId:
+          type: string
+        estimatedWait:
+          type: integer
+          description: Estimated wait time in minutes
+        message:
+          type: ["string", "null"]
+
+    LiveStats:
+      type: object
+      required: [activeUsers, messagesToday, roomsOnline, reportsBanned, counselorSessions]
+      properties:
+        activeUsers:
+          type: integer
+        messagesToday:
+          type: integer
+        roomsOnline:
+          type: integer
+        reportsBanned:
+          type: integer
+        counselorSessions:
+          type: integer
+
+    MoodPulse:
+      type: object
+      required: [overall, breakdown, crisisLevel]
+      properties:
+        overall:
+          type: string
+        breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+        crisisLevel:
+          type: number
+          description: "0-100 crisis probability score"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
