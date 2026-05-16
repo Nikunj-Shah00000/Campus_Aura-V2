@@ -1,0 +1,1 @@
+{"version":3,"file":"counselorMatch.d.ts","sourceRoot":"","sources":["../../../src/generated/types/counselorMatch.ts"],"names":[],"mappings":"AAAA;;;;;;GAMG;AACH,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,aAAa,CAAC;AAE7C,MAAM,WAAW,cAAc;IAC7B,SAAS,EAAE,SAAS,CAAC;IACrB,SAAS,EAAE,MAAM,CAAC;IAClB,qCAAqC;IACrC,aAAa,EAAE,MAAM,CAAC;IACtB,gBAAgB;IAChB,OAAO,CAAC,EAAE,MAAM,GAAG,IAAI,CAAC;CACzB"}
